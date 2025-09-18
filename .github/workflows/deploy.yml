@@ -1,0 +1,55 @@
+name: Deploy para EC2 Debian 13
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      - name: Configurar chave SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Testar conexão SSH
+        run: ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no jocerlan@${{ secrets.EC2_HOST }} "echo ✅ Conexão OK!"
+
+      - name: Deploy no servidor Debian 13
+        run: |
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes jocerlan@${{ secrets.EC2_HOST }} "
+            set -e
+            cd /home/jocerlan || exit
+
+            if [ ! -d analisa ]; then
+              echo '📥 Clonando projeto pela primeira vez...'
+              git clone https://github.com/SamaraBraga/analisa_numero.git analisa
+            else
+              if [ ! -d analisa/.git ]; then
+                echo '⚠️ Pasta existe mas não é repositório Git, removendo...'
+                rm -rf analisa
+                git clone https://github.com/SamaraBraga/analisa_numero.git analisa
+              else
+                echo '🔄 Atualizando repositório existente...'
+                cd analisa
+                git fetch origin main
+                git reset --hard origin/main
+              fi
+            fi
+
+            cd analisa
+
+            echo '🐳 Recriando container Docker...'
+            sudo docker stop analisa_numero || true
+            sudo docker rm analisa_numero || true
+            sudo docker build -t analisa_numero .
+            sudo docker run -d --restart always -p 1010:80 --name analisa_numero analisa_numero
+          "
