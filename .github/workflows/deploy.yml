@@ -37,13 +37,6 @@ jobs:
                 echo '⚠️ Pasta existe mas não é repositório Git, removendo...'
                 rm -rf analisa
                 git clone https://github.com/SamaraBraga/analisa_numero.git analisa
-              else
-                echo '🔄 Atualizando repositório existente...'
-                cd analisa
-                git fetch origin main
-                git reset --hard origin/main
-              fi
-            fi
 
             cd analisa
 
